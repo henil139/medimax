@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environment
+.venv/
+
+# Env files
+.env
+
+# IDE files
+.idea/
+.vscode/
+
+# Bytecode
+*.pyo
+*.pyd
+
+# Cache
+.cache/
+pytest_cache/
+
+# OS files
+.DS_Store
+Thumbs.db
