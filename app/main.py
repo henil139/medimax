@@ -1,7 +1,6 @@
 from fastapi import FastAPI
+from app.api.v1.db_test import router as db_test_router
 
 app = FastAPI()
 
-@app.get("/ping")
-async def ping():
-    return {"msg": "pong"}
+app.include_router(db_test_router)
