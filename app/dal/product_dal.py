@@ -3,29 +3,32 @@ from app.core.database import db
 class ProductDAL:
     def __init__(self):
         self.collection = db["products"]
-        self.counters = db["counters"]
-
-    def _get_next_product_id(self):
-        """
-        Atomically increments the product counter and returns a new product ID like PRD0001.
-        """
-        result = self.counters.find_one_and_update(
-            {"_id": "product_id"},
-            {"$inc": {"seq": 1}},
-            upsert=True,
-            return_document=True
-        )
-
-        seq_num = result["seq"]
-        return f"PRD{seq_num:04d}"  # Formats 1 → PRD0001
 
     def create(self, data: dict):
-        # Insert auto-generated product_id
-        data["product_id"] = self._get_next_product_id()
-
-        self.collection.insert_one(data)
-        return data["product_id"]  # Return business ID instead of Mongo ObjectId
+        result = self.collection.insert_one(data)
+        return data["product_id"]
 
     def get_all(self):
-        # Exclude MongoDB internal _id and return clean data
         return list(self.collection.find({}, {"_id": 0}))
+
+    def get_by_id(self, product_id: str):
+        return self.collection.find_one({"product_id": product_id}, {"_id": 0})
+
+    def update_product(self, product_id: str, update_data: dict):
+        # Remove None fields
+        update_data = {k: v for k, v in update_data.items() if v is not None}
+
+        result = self.collection.update_one(
+            {"product_id": product_id},
+            {"$set": update_data}
+        )
+
+        if result.matched_count == 0:
+            return None  # Not found
+
+        # return updated product
+        return self.get_by_id(product_id)
+
+    def delete_product(self, product_id: str):
+        result = self.collection.delete_one({"product_id": product_id})
+        return result.deleted_count > 0
