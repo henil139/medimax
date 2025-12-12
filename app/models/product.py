@@ -5,7 +5,9 @@ class ProductCreate(BaseModel):
     manufacturer: str
     mrp: float
 
+
 class ProductResponse(BaseModel):
+    product_id: str
     name: str
     manufacturer: str
     mrp: float
