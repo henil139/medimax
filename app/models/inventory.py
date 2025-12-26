@@ -1,14 +1,18 @@
 from pydantic import BaseModel
+from datetime import datetime
 from typing import Optional
 
-class InventoryCreate(BaseModel):
-    product_id: str
+class InventoryBase(BaseModel):
+    store_id: str
+    batch_id: str
     quantity: int
+
+class InventoryCreate(InventoryBase):
+    pass
 
 class InventoryUpdate(BaseModel):
     quantity: Optional[int] = None
 
-class InventoryResponse(BaseModel):
+class InventoryResponse(InventoryBase):
     inventory_id: str
-    product_id: str
-    quantity: int
+    last_updated: datetime

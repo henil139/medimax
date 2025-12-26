@@ -1,52 +1,44 @@
+from datetime import datetime
 from app.core.database import db
-
+from app.dal.counter_dal import CounterDAL
 
 class InventoryDAL:
     def __init__(self):
         self.collection = db["inventory"]
-        self.counter = db["counters"]  # shared collection for number sequences
+        self.counter_dal = CounterDAL()
 
-    def _get_next_inventory_id(self):
-        result = self.counter.find_one_and_update(
-            {"_id": "inventory"},
-            {"$inc": {"sequence": 1}},
-            upsert=True,
-            return_document=True
-        )
-        seq = result["sequence"]
-        return f"INV{seq:05d}"  # INV00001
+    def create(self, data: dict) -> str:
+        seq = self.counter_dal.get_next_sequence("inventory_id")
+        inventory_id = f"INV{seq:04d}"
 
-    def create(self, product_id: str, quantity: int):
-        inv_id = self._get_next_inventory_id()
+        data["inventory_id"] = inventory_id
+        data["last_updated"] = datetime.utcnow()
 
-        doc = {
-            "inventory_id": inv_id,
-            "product_id": product_id,
-            "quantity": quantity
-        }
+        self.collection.insert_one(data)
+        return inventory_id
 
-        self.collection.insert_one(doc)
-        return inv_id
+    def get_all(self):
+        return list(self.collection.find({}, {"_id": 0}))
 
-    def get_by_product(self, product_id: str):
+    def get_by_id(self, inventory_id: str):
         return self.collection.find_one(
-            {"product_id": product_id},
+            {"inventory_id": inventory_id},
             {"_id": 0}
         )
 
-    def update(self, product_id: str, update_data: dict):
-        update_data = {k: v for k, v in update_data.items() if v is not None}
-
+    def update(self, inventory_id: str, quantity: int):
         result = self.collection.update_one(
-            {"product_id": product_id},
-            {"$set": update_data}
+            {"inventory_id": inventory_id},
+            {
+                "$set": {
+                    "quantity": quantity,
+                    "last_updated": datetime.utcnow()
+                }
+            }
         )
+        return result.matched_count
 
-        if result.matched_count == 0:
-            return None
-
-        return self.get_by_product(product_id)
-
-    def delete(self, product_id: str):
-        result = self.collection.delete_one({"product_id": product_id})
-        return result.deleted_count > 0
+    def delete(self, inventory_id: str):
+        return self.collection.delete_one(
+            {"inventory_id": inventory_id}
+        ).deleted_count
