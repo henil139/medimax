@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from app.dal.inventory_dal import InventoryDAL
 from app.models.inventory import (
     InventoryCreate,
@@ -41,3 +41,7 @@ def delete_inventory(inventory_id: str):
     if deleted == 0:
         raise HTTPException(status_code=404, detail="Inventory item not found")
     return {"message": "Inventory deleted"}
+
+@router.get("/expiry/alerts")
+def expiry_alerts(store_id: str = Query(..., example="STR001")):
+    return inventory_dal.expiry_alerts_by_store(store_id)

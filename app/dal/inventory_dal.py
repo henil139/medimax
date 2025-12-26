@@ -102,10 +102,13 @@ class InventoryDAL:
         ]
         return list(self.collection.aggregate(pipeline))
 
-    def generic_suggestions(self, store_id: str, generic_group_id: str):
+    def expiry_alerts_by_store(self, store_id: str):
         pipeline = [
-            {"$match": {"store_id": store_id}},
-
+            {
+                "$match": {
+                    "store_id": store_id
+                }
+            },
             {
                 "$lookup": {
                     "from": "batches",
@@ -114,8 +117,9 @@ class InventoryDAL:
                     "as": "batch"
                 }
             },
-            {"$unwind": "$batch"},
-
+            {
+                "$unwind": "$batch"
+            },
             {
                 "$lookup": {
                     "from": "products",
@@ -124,35 +128,66 @@ class InventoryDAL:
                     "as": "product"
                 }
             },
-            {"$unwind": "$product"},
-
             {
-                "$match": {
-                    "product.generic_group_id": generic_group_id
+                "$unwind": "$product"
+            },
+
+            # 🔥 THIS IS THE FIX
+            {
+                "$addFields": {
+                    "expiry_date_fixed": {
+                        "$toDate": "$batch.expiry_date"
+                    }
                 }
             },
 
             {
-                "$group": {
-                    "_id": "$product.product_id",
-                    "product_id": {"$first": "$product.product_id"},
-                    "name": {"$first": "$product.name"},
-                    "manufacturer": {"$first": "$product.manufacturer"},
-                    "mrp": {"$first": "$product.mrp"},
-                    "is_assured": {"$first": "$product.is_assured"},
-                    "total_quantity": {"$sum": "$quantity"}
+                "$addFields": {
+                    "days_to_expiry": {
+                        "$dateDiff": {
+                            "startDate": "$$NOW",
+                            "endDate": "$expiry_date_fixed",
+                            "unit": "day"
+                        }
+                    }
+                }
+            },
+
+            {
+                "$addFields": {
+                    "expiry_status": {
+                        "$cond": [
+                            {"$lt": ["$days_to_expiry", 0]},
+                            "EXPIRED",
+                            {
+                                "$cond": [
+                                    {"$lte": ["$days_to_expiry", 30]},
+                                    "EXPIRING_SOON",
+                                    "SAFE"
+                                ]
+                            }
+                        ]
+                    }
+                }
+            },
+
+            {
+                "$match": {
+                    "expiry_status": {"$in": ["EXPIRED", "EXPIRING_SOON"]}
                 }
             },
 
             {
                 "$project": {
                     "_id": 0,
-                    "product_id": 1,
-                    "name": 1,
-                    "manufacturer": 1,
-                    "mrp": 1,
-                    "is_assured": 1,
-                    "total_quantity": 1
+                    "store_id": 1,
+                    "product_id": "$product.product_id",
+                    "product_name": "$product.name",
+                    "batch_id": "$batch.batch_id",
+                    "expiry_date": "$expiry_date_fixed",
+                    "days_to_expiry": 1,
+                    "expiry_status": 1,
+                    "quantity": 1
                 }
             }
         ]
