@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from app.dal.product_dal import ProductDAL
 from app.models.product import (
     ProductCreate,
@@ -41,3 +41,13 @@ def delete_product(product_id: str):
     if deleted == 0:
         raise HTTPException(status_code=404, detail="Product not found")
     return {"message": "Product deactivated"}
+
+@router.get("/suggestions/generic")
+def get_generic_suggestions(
+    generic_group_id: str = Query(..., example="GEN0001"),
+    store_id: str = Query(..., example="STR001")
+):
+    return product_dal.generic_suggestions(
+        generic_group_id=generic_group_id,
+        store_id=store_id
+    )

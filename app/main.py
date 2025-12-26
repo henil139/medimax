@@ -6,6 +6,7 @@ from app.api.v1.store_routes import router as store_router
 from app.api.v1.generic_group_routes import router as generic_group_router
 from app.api.v1.batch_routes import router as batch_router
 from app.api.v1.search_routes import router as search_router
+from app.api.v1.generic_routes import router as generic_router
 
 
 app = FastAPI()
@@ -21,3 +22,5 @@ app.include_router(generic_group_router)
 app.include_router(batch_router)
 
 app.include_router(search_router)
+
+app.include_router(generic_router)

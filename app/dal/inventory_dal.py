@@ -101,3 +101,60 @@ class InventoryDAL:
             }
         ]
         return list(self.collection.aggregate(pipeline))
+
+    def generic_suggestions(self, store_id: str, generic_group_id: str):
+        pipeline = [
+            {"$match": {"store_id": store_id}},
+
+            {
+                "$lookup": {
+                    "from": "batches",
+                    "localField": "batch_id",
+                    "foreignField": "batch_id",
+                    "as": "batch"
+                }
+            },
+            {"$unwind": "$batch"},
+
+            {
+                "$lookup": {
+                    "from": "products",
+                    "localField": "batch.product_id",
+                    "foreignField": "product_id",
+                    "as": "product"
+                }
+            },
+            {"$unwind": "$product"},
+
+            {
+                "$match": {
+                    "product.generic_group_id": generic_group_id
+                }
+            },
+
+            {
+                "$group": {
+                    "_id": "$product.product_id",
+                    "product_id": {"$first": "$product.product_id"},
+                    "name": {"$first": "$product.name"},
+                    "manufacturer": {"$first": "$product.manufacturer"},
+                    "mrp": {"$first": "$product.mrp"},
+                    "is_assured": {"$first": "$product.is_assured"},
+                    "total_quantity": {"$sum": "$quantity"}
+                }
+            },
+
+            {
+                "$project": {
+                    "_id": 0,
+                    "product_id": 1,
+                    "name": 1,
+                    "manufacturer": 1,
+                    "mrp": 1,
+                    "is_assured": 1,
+                    "total_quantity": 1
+                }
+            }
+        ]
+
+        return list(self.collection.aggregate(pipeline))

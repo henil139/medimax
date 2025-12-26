@@ -36,3 +36,70 @@ class ProductDAL:
             {"product_id": product_id},
             {"$set": {"is_active": False}}
         ).matched_count
+
+    def generic_suggestions(self, generic_group_id: str, store_id: str):
+        pipeline = [
+            {
+                "$match": {
+                    "generic_group_id": generic_group_id,
+                    "is_active": True
+                }
+            },
+            {
+                "$lookup": {
+                    "from": "batches",
+                    "localField": "product_id",
+                    "foreignField": "product_id",
+                    "as": "batches"
+                }
+            },
+            {"$unwind": "$batches"},
+            {
+                "$lookup": {
+                    "from": "inventory",
+                    "let": {"batch_id": "$batches.batch_id"},
+                    "pipeline": [
+                        {
+                            "$match": {
+                                "$expr": {
+                                    "$and": [
+                                        {"$eq": ["$batch_id", "$$batch_id"]},
+                                        {"$eq": ["$store_id", store_id]},
+                                        {"$gt": ["$quantity", 0]}
+                                    ]
+                                }
+                            }
+                        }
+                    ],
+                    "as": "inventory"
+                }
+            },
+            {"$match": {"inventory": {"$ne": []}}},
+            {
+                "$group": {
+                    "_id": "$product_id",
+                    "name": {"$first": "$name"},
+                    "manufacturer": {"$first": "$manufacturer"},
+                    "mrp": {"$first": "$mrp"},
+                    "pack_size": {"$first": "$pack_size"},
+                    "is_assured": {"$first": "$is_assured"},
+                    "total_quantity": {
+                        "$sum": {"$arrayElemAt": ["$inventory.quantity", 0]}
+                    }
+                }
+            },
+            {
+                "$project": {
+                    "_id": 0,
+                    "product_id": "$_id",
+                    "name": 1,
+                    "manufacturer": 1,
+                    "mrp": 1,
+                    "pack_size": 1,
+                    "is_assured": 1,
+                    "total_quantity": 1
+                }
+            }
+        ]
+
+        return list(self.collection.aggregate(pipeline))
